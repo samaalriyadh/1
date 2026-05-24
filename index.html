@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>لوحة إحصائيات العمالة المنزلية</title>
+    <!-- Tailwind CSS للتصميم -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Chart.js للرسوم البيانية -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800 font-sans">
+
+    <!-- شريط التنقل العلوي -->
+    <header class="bg-blue-600 text-white shadow-lg p-4 mb-8">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">نظام إدارة ومتابعة العمالة</h1>
+            <span class="text-sm bg-blue-700 px-3 py-1 rounded-full">تحديث فوري</span>
+        </div>
+    </header>
+
+    <main class="container mx-auto px-4">
+        
+        <!-- كروت الإحصائيات السريعة -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-white p-6 rounded-xl shadow-md border-r-4 border-blue-500">
+                <p class="text-gray-500 text-sm font-medium">إجمالي المبالغ والرسوم</p>
+                <p id="totalAmount" class="text-3xl font-bold text-gray-900 mt-2">0.00 ر.س</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border-r-4 border-green-500">
+                <p class="text-gray-500 text-sm font-medium">الطلبات (تم الوصول)</p>
+                <p id="statusArrived" class="text-3xl font-bold text-gray-900 mt-2">0</p>
+            </div>
+            <div class="bg-white p-6 rounded-xl shadow-md border-r-4 border-yellow-500">
+                <p class="text-gray-500 text-sm font-medium">الطلبات المعلقة (مرفوع)</p>
+                <p id="statusPending" class="text-3xl font-bold text-gray-900 mt-2">0</p>
+            </div>
+        </div>
+
+        <!-- الرسوم البيانية وأدوات التصفية -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 mb-8">
+            <!-- الفلترة والبحث -->
+            <div class="bg-white p-6 rounded-xl shadow-md lg:col-span-1 flex flex-col justify-between">
+                <div>
+                    <h3 class="text-lg font-bold mb-4 text-gray-700">تصفية البيانات</h3>
+                    <div class="space-y-4">
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">بحث باسم الكفيل أو العامل:</label>
+                            <input type="text" id="searchInput" oninput="filterData()" placeholder="اكتب للبحث..." class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                        </div>
+                        <div>
+                            <label class="block text-sm text-gray-600 mb-1">الدولة:</label>
+                            <select id="countryFilter" onchange="filterData()" class="w-full p-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                <option value="all">الكل</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="fetchData()" class="mt-6 w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg transition">تحديث البيانات ↻</button>
+            </div>
+
+            <!-- الرسم البياني -->
+            <div class="bg-white p-6 rounded-xl shadow-md lg:col-span-2">
+                <h3 class="text-lg font-bold mb-2 text-gray-700">توزيع التكاليف المالية حسب الدولة</h3>
+                <div class="h-64 flex justify-center items-center">
+                    <canvas id="financialChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- جدول البيانات الرئيسي -->
+        <div class="bg-white rounded-xl shadow-md overflow-hidden mb-12">
+            <div class="p-6 border-b border-gray-100">
+                <h2 class="text-xl font-bold text-gray-800">سجل العقود والطلبات بالتفصيل</h2>
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-right border-collapse">
+                    <thead>
+                        <tr class="bg-gray-100 text-gray-600 text-sm uppercase">
+                            <th class="p-4 border-b">رقم العقد</th>
+                            <th class="p-4 border-b">اسم الكفيل</th>
+                            <th class="p-4 border-b">اسم العامل</th>
+                            <th class="p-4 border-b">الجنسية</th>
+                            <th class="p-4 border-b">المهنة</th>
+                            <th class="p-4 border-b">المبلغ</th>
+                            <th class="p-4 border-b">الحالة</th>
+                            <th class="p-4 border-b">تاريخ الطلب</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tableBody" class="divide-y divide-gray-200 text-sm">
+                        <!-- البيانات ستظهر هنا عبر الجافاسكريبت -->
+                        <tr>
+                            <td colspan="8" class="text-center p-8 text-gray-400">جاري تحميل البيانات من Google Sheets...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        // ضع رابط الـ Web App الخاص بك المستخرج من Google Apps Script هنا
+        const API_URL = 'https://script.google.com/macros/s/XXXXX_YOUR_SCRIPT_ID_XXXXX/exec'; 
+
+        let rawData = [];
+        let myChart = null;
+
+        // جلب البيانات من الجوجل شيت عبر آلية JSONP لتخطي الـ CORS
+        function fetchData() {
+            const script = document.createElement('script');
+            script.src = `${API_URL}?callback=handleResponse`;
+            document.body.appendChild(script);
+        }
+
+        // معالجة البيانات القادمة من السكريبت
+        function handleResponse(data) {
+            // تحويل مسميات الأعمدة بناءً على ترتيب البيانات المرسلة لديك لتوحيدها
+            rawData = data;
+            
+            // تعبئة فلتر الدول تلقائياً بناءً على البيانات المتوفرة
+            const countries = [...new Set(rawData.map(item => item["الجنسية"] || item["اثيوبيا"] || item["اثوبيا"] || item["بنجلاديش"]))].filter(Boolean);
+            const filterSelect = document.getElementById('countryFilter');
+            filterSelect.innerHTML = '<option value="all">الكل</option>';
+            countries.forEach(c => {
+                filterSelect.innerHTML += `<option value="${c}">${c}</option>`;
+            });
+
+            filterData();
+        }
+
+        function filterData() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const countryFilter = document.getElementById('countryFilter').value;
+
+            // تصفية المصفوفة
+            const filtered = rawData.filter(item => {
+                // محرك بحث مرن يبحث في خانات الاسم (كفيل أو عامل)
+                const sponsor = String(item["اسم الكفيل"] || Object.values(item)[4] || "").toLowerCase();
+                const worker = String(item["اسم العامل"] || Object.values(item)[5] || "").toLowerCase();
+                const country = String(item["الجنسية"] || Object.values(item)[6] || "");
+
+                const matchesSearch = sponsor.includes(searchTerm) || worker.includes(searchTerm);
+                const matchesCountry = countryFilter === 'all' || country === countryFilter;
+
+                return matchesSearch && matchesCountry;
+            });
+
+            updateDashboard(filtered);
+        }
+
+        function updateDashboard(data) {
+            let totalCost = 0;
+            let arrivedCount = 0;
+            let pendingCount = 0;
+            let tableHTML = '';
+            let chartData = {};
+
+            data.forEach(item => {
+                // استخراج القيم بناءً على البنية الرقمية إذا تفاوتت أسماء الأعمدة في الشيت
+                const values = Object.values(item);
+                const id = values[0] || '';
+                const sponsor = values[4] || '';
+                const worker = values[5] || '';
+                const country = values[6] || '';
+                const job = values[7] || '';
+                const price = parseFloat(values[8]) || 0;
+                const status = values[12] || '';
+                const date = values[10] || '';
+
+                totalCost += price;
+                if (status.includes("وصول")) arrivedCount++;
+                if (status.includes("مرفوع")) pendingCount++;
+
+                // تجميع بيانات الرسم البياني
+                chartData[country] = (chartData[country] || 0) + price;
+
+                // إنشاء صفوف الجدول مع تلوين شارات الحالة (تم الوصول / معلق)
+                const statusClass = status.includes("وصول") ? "bg-green-100 text-green-800" : "bg-yellow-100 text-yellow-800";
+                
+                tableHTML += `
+                    <tr class="hover:bg-gray-50 transition">
+                        <td class="p-4 font-mono font-medium">${id}</td>
+                        <td class="p-4">${sponsor}</td>
+                        <td class="p-4 text-gray-600">${worker}</td>
+                        <td class="p-4">${country}</td>
+                        <td class="p-4 text-xs text-gray-500">${job}</td>
+                        <td class="p-4 font-bold text-blue-600">${price.toFixed(2)}</td>
+                        <td class="p-4"><span class="px-2 py-1 rounded-full text-xs font-semibold ${statusClass}">${status}</span></td>
+                        <td class="p-4 text-gray-500 text-xs">${date}</td>
+                    </tr>
+                `;
+            });
+
+            // تحديث واجهة الأرقام العلوية
+            document.getElementById('totalAmount').innerText = totalCost.toLocaleString('en-US', {minimumFractionDigits: 2}) + ' ر.س';
+            document.getElementById('statusArrived').innerText = arrivedCount;
+            document.getElementById('statusPending').innerText = pendingCount;
+            document.getElementById('tableBody').innerHTML = tableHTML || '<tr><td colspan="8" class="text-center p-8 text-gray-400">لا توجد نتائج مطابقة للبحث.</td></tr>';
+
+            // بناء أو تحديث الرسم البياني
+            updateChart(chartData);
+        }
+
+        function updateChart(chartData) {
+            const ctx = document.getElementById('financialChart').getContext('2d');
+            
+            if (myChart) {
+                myChart.destroy();
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(chartData),
+                    datasets: [{
+                        label: 'مجموع المبالغ المصروفة (ريال سعودي)',
+                        data: Object.values(chartData),
+                        backgroundColor: ['rgba(59, 130, 246, 0.7)', 'rgba(16, 185, 129, 0.7)', 'rgba(249, 115, 22, 0.7)'],
+                        borderColor: ['rgb(59, 130, 246)', 'rgb(16, 185, 129)', 'rgb(249, 115, 22)'],
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: { legend: { display: false } },
+                    scales: { y: { beginAtZero: true } }
+                }
+            });
+        }
+
+        // بدء جلب البيانات عند تحميل الصفحة لأول مرة
+        window.onload = fetchData;
+    </script>
+</body>
+</html>
